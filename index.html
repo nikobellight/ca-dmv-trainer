@@ -316,20 +316,82 @@ const QUESTIONS = [
 let session = null; // {mode, questions:[...], idx, answers:[{cat,correct}]}
 let progress = { attempts: [], sessions: [], streak: 0, lastDay: null };
 
-const STORAGE_KEY = 'dmv-progress-v1';
+/* ---------------- SUPABASE ---------------- */
+const SUPABASE_URL = 'https://lflkhyxkmysvcmfinhku.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbGtoeXhrbXlzdmNtZmluaGt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MzMyMDYsImV4cCI6MjA5NzQwOTIwNn0.6w2Gs3Y4ffrD2_rdxRi7B1MsxjGf-8yuFC4mAkvMxGE';
+
+function getDeviceId(){
+  let id = localStorage.getItem('dmv-device-id');
+  if(!id){
+    id = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('dmv-device-id', id);
+  }
+  return id;
+}
+const DEVICE_ID = getDeviceId();
+
+async function sbFetch(path, options={}){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      ...(options.headers||{})
+    }
+  });
+  if(!res.ok){ console.error('Supabase error', res.status, await res.text()); return null; }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+function computeStreakFromSessions(sessions){
+  if(sessions.length===0) return {streak:0,lastDay:null};
+  const days = [...new Set(sessions.map(s=>new Date(s.ts).toDateString()))]
+    .map(d=>new Date(d)).sort((a,b)=>b-a);
+  let streak = 1;
+  for(let i=0;i<days.length-1;i++){
+    const diff = (days[i]-days[i+1])/86400000;
+    if(diff===1) streak++;
+    else break;
+  }
+  const today = new Date().toDateString();
+  const mostRecent = days[0].toDateString();
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+  if(mostRecent !== today && mostRecent !== yesterday.toDateString()) streak = 0;
+  return {streak, lastDay: mostRecent};
+}
 
 async function loadProgress(){
   try{
-    const r = await window.storage.get(STORAGE_KEY);
-    if(r && r.value) progress = JSON.parse(r.value);
-  }catch(e){ /* first run, no data yet */ }
+    const [attemptsRows, sessionsRows] = await Promise.all([
+      sbFetch(`dmv_attempts?device_id=eq.${DEVICE_ID}&select=category,correct,created_at&order=created_at.asc`),
+      sbFetch(`dmv_sessions?device_id=eq.${DEVICE_ID}&select=mode,category,total,correct,pct,created_at&order=created_at.asc`)
+    ]);
+    progress.attempts = (attemptsRows||[]).map(r=>({cat:r.category, correct:r.correct, ts:new Date(r.created_at).getTime()}));
+    progress.sessions = (sessionsRows||[]).map(r=>({mode:r.mode, cat:r.category, total:r.total, correct:r.correct, pct:r.pct, ts:new Date(r.created_at).getTime()}));
+    const s = computeStreakFromSessions(progress.sessions);
+    progress.streak = s.streak; progress.lastDay = s.lastDay;
+  }catch(e){ console.error('load failed, starting fresh', e); }
   renderGauge();
   renderStats();
   renderCatGrid();
 }
-async function saveProgress(){
-  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(progress)); }
-  catch(e){ console.error('save failed', e); }
+
+async function insertAttempt(cat, correct){
+  sbFetch('dmv_attempts', {
+    method:'POST',
+    headers:{'Prefer':'return=minimal'},
+    body: JSON.stringify({device_id:DEVICE_ID, category:cat, correct})
+  });
+}
+
+async function insertSession(s){
+  sbFetch('dmv_sessions', {
+    method:'POST',
+    headers:{'Prefer':'return=minimal'},
+    body: JSON.stringify({device_id:DEVICE_ID, mode:s.mode, category:s.cat||null, total:s.total, correct:s.correct, pct:s.pct})
+  });
 }
 
 function shuffle(arr){
@@ -450,7 +512,6 @@ function answerQuestion(isCorrect, btn, wrap){
     if(c===btn) c.classList.add(isCorrect?'correct':'wrong');
   });
   if(!isCorrect){
-    // reveal the correct one too
     const q = session.questions[session.idx];
     wrap.querySelectorAll('.choice').forEach(c=>{
       if(c.textContent === q.choices[q.a]) c.classList.add('correct');
@@ -462,6 +523,7 @@ function answerQuestion(isCorrect, btn, wrap){
   const q = session.questions[session.idx];
   session.answers.push({cat:q.cat, correct:isCorrect});
   progress.attempts.push({cat:q.cat, correct:isCorrect, ts:Date.now()});
+  insertAttempt(q.cat, isCorrect);
 }
 
 function nextQuestion(){
@@ -478,15 +540,11 @@ function finishSession(){
   const correct = session.answers.filter(a=>a.correct).length;
   const pct = Math.round(100*correct/total);
 
-  // streak
-  const today = new Date().toDateString();
-  if(progress.lastDay !== today){
-    progress.streak = (progress.lastDay && isYesterday(progress.lastDay)) ? progress.streak+1 : 1;
-    progress.lastDay = today;
-  }
-
-  progress.sessions.push({mode:session.mode, cat:session.cat||null, total, correct, pct, ts:Date.now()});
-  saveProgress();
+  const newSession = {mode:session.mode, cat:session.cat||null, total, correct, pct, ts:Date.now()};
+  progress.sessions.push(newSession);
+  const s = computeStreakFromSessions(progress.sessions);
+  progress.streak = s.streak; progress.lastDay = s.lastDay;
+  insertSession(newSession);
 
   document.getElementById('quizView').style.display='none';
   document.getElementById('resultsView').style.display='block';
@@ -504,7 +562,6 @@ function finishSession(){
   }
   document.getElementById('resultVerdict').textContent = verdict;
 
-  // per-category breakdown for this session
   const byCat = {};
   session.answers.forEach(a=>{
     byCat[a.cat] = byCat[a.cat] || {c:0,t:0};
@@ -520,12 +577,6 @@ function finishSession(){
   renderGauge();
   renderStats();
   renderCatGrid();
-}
-
-function isYesterday(dayStr){
-  const d = new Date(dayStr);
-  const y = new Date(); y.setDate(y.getDate()-1);
-  return d.toDateString() === y.toDateString();
 }
 
 function catBarHtml(label, pct){
@@ -609,9 +660,10 @@ function renderStats(){
 }
 
 async function resetProgress(){
-  if(!confirm('This will erase all saved progress on this device. Continue?')) return;
+  if(!confirm('This will erase all saved progress. Continue?')) return;
+  await sbFetch(`dmv_attempts?device_id=eq.${DEVICE_ID}`, {method:'DELETE'});
+  await sbFetch(`dmv_sessions?device_id=eq.${DEVICE_ID}`, {method:'DELETE'});
   progress = { attempts: [], sessions: [], streak: 0, lastDay: null };
-  await saveProgress();
   renderGauge(); renderStats(); renderCatGrid();
 }
 
