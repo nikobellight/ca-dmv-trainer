@@ -366,10 +366,13 @@ const QUESTIONS = [
   {cat:"licensing", q:"If involved in a collision causing injury, death, or property damage over a set amount, California law requires you to:", choices:["Leave the scene if no one saw you","Report it to the DMV within a required timeframe (in addition to any police report)","Only tell your insurance company, no DMV report needed","Nothing is required if you weren't at fault"], a:1, exp:"California requires drivers to report qualifying collisions to the DMV within 10 days using an SR-1 form, regardless of fault."},
   {cat:"licensing", q:"A suspended license means:", choices:["Your driving privilege is temporarily withdrawn but can be reinstated after conditions are met","Your license is permanently cancelled","You may still drive to work only","It only affects your ability to rent a car"], a:0, exp:"Suspension is temporary — driving privileges can be reinstated once the required conditions (fines paid, program completed, waiting period) are satisfied."}
 ];
+QUESTIONS.forEach((q,i)=>{ q.id = q.cat + '-' + i; });
 
 /* ---------------- STATE ---------------- */
 let session = null; // {mode, questions:[...], idx, answers:[{cat,correct}]}
 let progress = { attempts: [], sessions: [], streak: 0, lastDay: null };
+let mastery = {}; // question_id -> box (0-3). box 3 = mastered.
+const MASTERY_TARGET = 3;
 
 /* ---------------- SUPABASE ---------------- */
 const SUPABASE_URL = 'https://lflkhyxkmysvcmfinhku.supabase.co';
@@ -419,18 +422,29 @@ function computeStreakFromSessions(sessions){
 
 async function loadProgress(){
   try{
-    const [attemptsRows, sessionsRows] = await Promise.all([
+    const [attemptsRows, sessionsRows, masteryRows] = await Promise.all([
       sbFetch(`dmv_attempts?device_id=eq.${DEVICE_ID}&select=category,correct,created_at&order=created_at.asc`),
-      sbFetch(`dmv_sessions?device_id=eq.${DEVICE_ID}&select=mode,category,total,correct,pct,created_at&order=created_at.asc`)
+      sbFetch(`dmv_sessions?device_id=eq.${DEVICE_ID}&select=mode,category,total,correct,pct,created_at&order=created_at.asc`),
+      sbFetch(`dmv_mastery?device_id=eq.${DEVICE_ID}&select=question_id,box`)
     ]);
     progress.attempts = (attemptsRows||[]).map(r=>({cat:r.category, correct:r.correct, ts:new Date(r.created_at).getTime()}));
     progress.sessions = (sessionsRows||[]).map(r=>({mode:r.mode, cat:r.category, total:r.total, correct:r.correct, pct:r.pct, ts:new Date(r.created_at).getTime()}));
+    mastery = {};
+    (masteryRows||[]).forEach(r=>{ mastery[r.question_id] = r.box; });
     const s = computeStreakFromSessions(progress.sessions);
     progress.streak = s.streak; progress.lastDay = s.lastDay;
   }catch(e){ console.error('load failed, starting fresh', e); }
   renderGauge();
   renderStats();
   renderCatGrid();
+}
+
+async function upsertMastery(questionId, box){
+  sbFetch(`dmv_mastery?on_conflict=device_id,question_id`, {
+    method:'POST',
+    headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify({device_id:DEVICE_ID, question_id:questionId, box, updated_at:new Date().toISOString()})
+  });
 }
 
 async function insertAttempt(cat, correct){
@@ -580,6 +594,11 @@ function answerQuestion(isCorrect, btn, wrap){
   session.answers.push({cat:q.cat, correct:isCorrect});
   progress.attempts.push({cat:q.cat, correct:isCorrect, ts:Date.now()});
   insertAttempt(q.cat, isCorrect);
+
+  const currentBox = mastery[q.id] || 0;
+  const newBox = isCorrect ? Math.min(currentBox+1, MASTERY_TARGET) : 0;
+  mastery[q.id] = newBox;
+  upsertMastery(q.id, newBox);
 }
 
 function nextQuestion(){
@@ -654,13 +673,10 @@ function catBarHtml(label, pct){
 function computeReadiness(){
   if(progress.attempts.length === 0) return null;
   const totalBank = QUESTIONS.length;
-  const totalAttempts = progress.attempts.length;
-  const correct = progress.attempts.filter(a=>a.correct).length;
-  const accuracy = correct / totalAttempts;
-  // Coverage: how much of the whole bank you've actually practiced (capped at 1).
-  const coverage = Math.min(1, totalAttempts / totalBank);
-  const readiness = Math.round(100 * accuracy * coverage);
-  return { readiness, accuracy: Math.round(100*accuracy), totalAttempts, totalBank, coverage: Math.round(100*coverage) };
+  const masteredCount = QUESTIONS.filter(q => (mastery[q.id]||0) >= MASTERY_TARGET).length;
+  const inProgressCount = QUESTIONS.filter(q => { const b = mastery[q.id]||0; return b>0 && b<MASTERY_TARGET; }).length;
+  const readiness = Math.round(100 * masteredCount / totalBank);
+  return { readiness, masteredCount, inProgressCount, totalBank };
 }
 
 function renderGauge(){
@@ -684,10 +700,10 @@ function renderGauge(){
 
   if(r.readiness>=83){
     verdictText.textContent='Ready to test';
-    verdictSub.textContent=`${r.accuracy}% accuracy across ${r.totalAttempts}/${r.totalBank} questions practiced. Take a full mock exam to confirm.`;
+    verdictSub.textContent=`${r.masteredCount}/${r.totalBank} questions mastered (${MASTERY_TARGET} correct in a row). Take a full mock exam to confirm.`;
   } else {
-    verdictText.textContent = r.totalAttempts < r.totalBank ? 'Still building coverage' : 'Keep drilling weak spots';
-    verdictSub.textContent = `${r.accuracy}% accuracy, but only ${r.totalAttempts}/${r.totalBank} questions in the bank practiced (${r.coverage}% coverage). Readiness needs both.`;
+    verdictText.textContent = 'Building mastery';
+    verdictSub.textContent = `${r.masteredCount}/${r.totalBank} mastered, ${r.inProgressCount} in progress. A question counts as mastered after ${MASTERY_TARGET} correct answers in a row — get it wrong once and it resets.`;
   }
 }
 
@@ -727,7 +743,9 @@ async function resetProgress(){
   if(!confirm('This will erase all saved progress for this device across all your devices signed in with this browser. Continue?')) return;
   await sbFetch(`dmv_attempts?device_id=eq.${DEVICE_ID}`, {method:'DELETE'});
   await sbFetch(`dmv_sessions?device_id=eq.${DEVICE_ID}`, {method:'DELETE'});
+  await sbFetch(`dmv_mastery?device_id=eq.${DEVICE_ID}`, {method:'DELETE'});
   progress = { attempts: [], sessions: [], streak: 0, lastDay: null };
+  mastery = {};
   renderGauge(); renderStats(); renderCatGrid();
 }
 
