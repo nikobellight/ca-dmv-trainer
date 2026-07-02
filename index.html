@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CA DMV Trainer</title>
+<style>
+  :root{
+    --asphalt:#1b1e22;
+    --asphalt-2:#24282e;
+    --line-yellow:#f2c14e;
+    --sign-red:#c1272d;
+    --sign-green:#2e7d4f;
+    --sign-blue:#1d4e75;
+    --off-white:#eee9e0;
+    --grey:#8b9099;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--asphalt);
+    color:var(--off-white);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    min-height:100vh;
+    background-image:
+      repeating-linear-gradient(180deg, transparent 0 38px, rgba(242,193,78,0.08) 38px 44px);
+  }
+  h1,h2,h3{
+    font-family:'Oswald',-apple-system,sans-serif;
+    letter-spacing:0.02em;
+    margin:0;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap');
+
+  .wrap{max-width:520px;margin:0 auto;padding:16px 16px 40px;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 2px 18px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .badge{
+    width:38px;height:38px;border-radius:8px;background:var(--sign-red);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;
+    border:3px solid var(--off-white);color:var(--off-white);font-family:'Oswald',sans-serif;
+    transform:rotate(-3deg);
+  }
+  .brand h1{font-size:19px;color:var(--off-white);}
+  .brand span{display:block;font-size:11px;color:var(--grey);font-weight:500;letter-spacing:0.06em;}
+
+  /* Gauge */
+  .gauge-card{
+    background:var(--asphalt-2);border-radius:var(--radius);padding:16px;margin-bottom:16px;
+    display:flex;align-items:center;gap:16px;border:1px solid #33383f;
+  }
+  .gauge-card svg{flex-shrink:0;}
+  .gauge-text{flex:1;}
+  .gauge-text .label{font-size:11px;color:var(--grey);text-transform:uppercase;letter-spacing:0.08em;}
+  .gauge-text .verdict{font-family:'Oswald',sans-serif;font-size:17px;margin-top:2px;}
+  .gauge-text .sub{font-size:12px;color:var(--grey);margin-top:4px;}
+
+  /* Tabs */
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px;}
+  .tab{
+    background:var(--asphalt-2);border:1px solid #33383f;color:var(--off-white);
+    padding:10px 4px;border-radius:10px;font-size:11px;text-align:center;cursor:pointer;
+    font-weight:600;letter-spacing:0.01em;transition:all .15s;
+  }
+  .tab.active{background:var(--line-yellow);color:#1b1e22;border-color:var(--line-yellow);}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  /* Category chooser */
+  .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+  .cat-btn{
+    background:var(--asphalt-2);border:1px solid #33383f;color:var(--off-white);
+    padding:14px 10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;text-align:left;
+  }
+  .cat-btn small{display:block;color:var(--grey);font-weight:400;font-size:11px;margin-top:3px;}
+  .cat-btn.weak{border-color:var(--sign-red);}
+  .cat-btn.weak small{color:#e08a8a;}
+
+  .start-btn{
+    width:100%;background:var(--line-yellow);color:#1b1e22;border:none;border-radius:10px;
+    padding:14px;font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;letter-spacing:0.03em;
+    cursor:pointer;margin-top:6px;
+  }
+  .start-btn:active{transform:scale(0.98);}
+  .start-btn.secondary{background:transparent;border:1.5px solid var(--off-white);color:var(--off-white);}
+
+  /* Question card */
+  .session-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:12px;color:var(--grey);}
+  .progress-track{height:5px;background:#33383f;border-radius:3px;overflow:hidden;margin-bottom:16px;}
+  .progress-fill{height:100%;background:var(--line-yellow);transition:width .25s;}
+
+  .q-card{background:var(--asphalt-2);border-radius:var(--radius);padding:16px;border:1px solid #33383f;}
+  .q-cat{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--line-yellow);font-weight:700;margin-bottom:8px;}
+  .q-img-wrap{
+    background:#0f1114;border-radius:10px;padding:14px;margin-bottom:14px;text-align:center;min-height:120px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .q-img-wrap img{max-width:100%;max-height:150px;}
+  .q-img-fallback{color:var(--grey);font-size:12px;}
+  .q-text{font-size:16px;line-height:1.4;margin-bottom:14px;font-weight:500;}
+
+  .choice{
+    display:block;width:100%;text-align:left;background:#2c3138;border:1.5px solid #3a4048;
+    color:var(--off-white);padding:12px 14px;border-radius:9px;margin-bottom:8px;font-size:14px;
+    cursor:pointer;transition:all .12s;
+  }
+  .choice:active{transform:scale(0.99);}
+  .choice.correct{background:rgba(46,125,79,0.25);border-color:var(--sign-green);}
+  .choice.wrong{background:rgba(193,39,45,0.22);border-color:var(--sign-red);}
+  .choice.disabled{pointer-events:none;}
+
+  .explain{
+    background:#0f1114;border-left:3px solid var(--line-yellow);padding:10px 12px;border-radius:6px;
+    font-size:13px;color:#cfcabf;margin-top:12px;display:none;line-height:1.4;
+  }
+  .next-btn{
+    width:100%;margin-top:14px;background:var(--off-white);color:#1b1e22;border:none;border-radius:9px;
+    padding:12px;font-weight:700;font-size:14px;cursor:pointer;display:none;
+  }
+
+  /* Results */
+  .result-card{background:var(--asphalt-2);border-radius:var(--radius);padding:20px;text-align:center;border:1px solid #33383f;}
+  .result-card .big{font-family:'Oswald',sans-serif;font-size:44px;margin:6px 0;}
+  .result-card .pass{color:var(--sign-green);}
+  .result-card .fail{color:var(--sign-red);}
+  .cat-bars{margin-top:16px;text-align:left;}
+  .cat-bar-row{margin-bottom:10px;}
+  .cat-bar-row .label-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;color:var(--grey);}
+  .bar-track{height:7px;background:#33383f;border-radius:4px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;}
+
+  /* Stats */
+  .stat-row{display:flex;gap:10px;margin-bottom:14px;}
+  .stat-box{flex:1;background:var(--asphalt-2);border:1px solid #33383f;border-radius:10px;padding:12px;text-align:center;}
+  .stat-box .num{font-family:'Oswald',sans-serif;font-size:24px;}
+  .stat-box .lbl{font-size:10px;color:var(--grey);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;}
+
+  .history-item{
+    display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid #2c3138;color:var(--grey);
+  }
+  .history-item span.res-pass{color:var(--sign-green);font-weight:700;}
+  .history-item span.res-fail{color:var(--sign-red);font-weight:700;}
+
+  .reset-link{display:block;text-align:center;margin-top:24px;font-size:11px;color:var(--grey);text-decoration:underline;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="badge">CA</div>
+      <div>
+        <h1>DMV Trainer</h1>
+        <span>Written test prep</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="gauge-card">
+    <svg width="88" height="60" viewBox="0 0 120 70">
+      <path d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="#33383f" stroke-width="10" stroke-linecap="round"/>
+      <path id="gaugeArc" d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="#f2c14e" stroke-width="10" stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157"/>
+      <text id="gaugeNum" x="60" y="55" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" fill="#eee9e0">0%</text>
+    </svg>
+    <div class="gauge-text">
+      <div class="label">Readiness</div>
+      <div class="verdict" id="verdictText">Not started</div>
+      <div class="sub" id="verdictSub">Take a mock exam to get your first score.</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="random">Random</div>
+    <div class="tab" data-tab="mock">Mock Exam</div>
+    <div class="tab" data-tab="drill">By Topic</div>
+    <div class="tab" data-tab="stats">Stats</div>
+  </div>
+
+  <!-- RANDOM -->
+  <div class="panel active" id="panel-random">
+    <p style="font-size:13px;color:var(--grey);margin-bottom:14px;">A shuffled mix of questions from every category. Untimed, no pass/fail — just reps.</p>
+    <button class="start-btn" onclick="startSession('random')">Start random practice</button>
+  </div>
+
+  <!-- MOCK -->
+  <div class="panel" id="panel-mock">
+    <p style="font-size:13px;color:var(--grey);margin-bottom:14px;">Simulates the real CA written test format. You'll get every question in the bank, in random order. Real test: 46 questions, need 38 correct (first-time) or 36 questions / 3 errors max (renewal).</p>
+    <button class="start-btn" onclick="startSession('mock')">Start mock exam</button>
+  </div>
+
+  <!-- DRILL -->
+  <div class="panel" id="panel-drill">
+    <p style="font-size:13px;color:var(--grey);margin-bottom:10px;">Pick a category to drill. Categories with a red border are your current weak spots.</p>
+    <div class="cat-grid" id="catGrid"></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="panel" id="panel-stats">
+    <div class="stat-row">
+      <div class="stat-box"><div class="num" id="statStreak">0</div><div class="lbl">Day streak</div></div>
+      <div class="stat-box"><div class="num" id="statAttempts">0</div><div class="lbl">Questions answered</div></div>
+      <div class="stat-box"><div class="num" id="statAcc">0%</div><div class="lbl">Overall accuracy</div></div>
+    </div>
+    <h3 style="font-size:13px;color:var(--grey);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">By category</h3>
+    <div class="cat-bars" id="statCatBars"></div>
+    <h3 style="font-size:13px;color:var(--grey);text-transform:uppercase;letter-spacing:0.06em;margin:18px 0 8px;">Session history</h3>
+    <div id="historyList"></div>
+    <div class="reset-link" onclick="resetProgress()">Reset all progress</div>
+  </div>
+
+  <!-- QUIZ VIEW (overlays) -->
+  <div id="quizView" style="display:none;">
+    <div class="session-bar">
+      <span id="qModeLabel">Random practice</span>
+      <span id="qCounter">1 / 10</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="q-card">
+      <div class="q-cat" id="qCat">SIGNS</div>
+      <div id="qImgWrap" class="q-img-wrap" style="display:none;">
+        <img id="qImg" src="" alt="road sign" onerror="this.parentElement.innerHTML='<div class=q-img-fallback>Image unavailable — answer from the description</div>'">
+      </div>
+      <div class="q-text" id="qText"></div>
+      <div id="choicesWrap"></div>
+      <div class="explain" id="qExplain"></div>
+      <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next question →</button>
+    </div>
+  </div>
+
+  <!-- RESULTS VIEW -->
+  <div id="resultsView" style="display:none;">
+    <div class="result-card">
+      <div style="font-size:12px;color:var(--grey);text-transform:uppercase;letter-spacing:0.06em;" id="resultLabel">Mock Exam Result</div>
+      <div class="big" id="resultScore">0/0</div>
+      <div id="resultVerdict" style="font-family:'Oswald',sans-serif;font-size:18px;"></div>
+      <div class="cat-bars" id="resultCatBars"></div>
+    </div>
+    <button class="start-btn" onclick="backToMenu()">Back to menu</button>
+    <button class="start-btn secondary" onclick="viewStats()">View full stats</button>
+  </div>
+
+</div>
+
+<script>
+/* ---------------- QUESTION BANK ---------------- */
+const CATEGORIES = {
+  signs: "Signs",
+  rightofway: "Right-of-way",
+  signals: "Signals & Markings",
+  speedpark: "Speed & Parking",
+  alcohol: "Alcohol & Drugs",
+  freeway: "Freeway & General",
+  curbs: "Curb Colors"
+};
+
+const FP = f => `https://commons.wikimedia.org/wiki/Special:FilePath/${f}`;
+
+const QUESTIONS = [
+  // SIGNS
+  {cat:"signs", img:FP("MUTCD_R1-1.svg"), q:"This eight-sided red sign means:", choices:["Yield to all traffic","Come to a complete stop","Slow down and proceed if clear","No entry"], a:1, exp:"An octagon (8-sided) sign is always a STOP sign. You must come to a complete stop at the limit line, crosswalk, or before the intersection."},
+  {cat:"signs", img:FP("MUTCD_R1-2.svg"), q:"This downward-pointing triangular sign means:", choices:["Merge ahead","Yield the right-of-way to cross traffic and pedestrians","Two-way traffic ahead","Do not enter"], a:1, exp:"A yield sign means slow down and be ready to stop if needed to let other vehicles or pedestrians go first."},
+  {cat:"signs", img:FP("MUTCD_R5-1.svg"), q:"A red circle with a white bar and this wording means:", choices:["One-way street","No U-turn","Do not enter this roadway","No parking anytime"], a:2, exp:"A DO NOT ENTER sign marks a roadway you must not drive into — commonly the wrong end of a one-way street or freeway off-ramp."},
+  {cat:"signs", img:FP("MUTCD_W11-2.svg"), q:"This diamond-shaped yellow sign with a walking figure warns of:", choices:["School zone ahead","A pedestrian crossing area","A playground nearby","A hospital zone"], a:1, exp:"Diamond-shaped signs are always warning signs. This one warns drivers to watch for pedestrians crossing the road ahead."},
+  {cat:"signs", img:FP("MUTCD_W10-1.svg"), q:"This round yellow sign with an X and 'RR' warns that:", choices:["A railroad crossing is ahead","A roundabout is ahead","A rest area is ahead","Road repair is underway"], a:0, exp:"This advance warning sign tells you a railroad crossing is coming up, so you should slow down, look, and listen."},
+  {cat:"signs", img:FP("MUTCD_W4-1R.svg"), q:"This yellow sign with two merging arrows means:", choices:["Two-way traffic","Lane ends, merge into the indicated lane","Divided highway begins","Exit only lane"], a:1, exp:"A merge sign warns that a lane is ending and traffic will need to merge into the adjacent lane."},
+  {cat:"signs", img:FP("MUTCD_R3-4.svg"), q:"This red-and-white regulatory sign means:", choices:["No left turn","No U-turn","No through traffic","Right turn only"], a:1, exp:"This sign prohibits U-turns at this location. Look for it near intersections, school zones, and business districts."},
+  {cat:"signs", img:FP("MUTCD_R6-1R.svg"), q:"This black-and-white rectangular sign with an arrow means:", choices:["Two-way traffic ahead","One-way street, traffic flows in the arrow's direction","Detour","No traffic allowed"], a:1, exp:"A one-way sign tells you all traffic on that street moves only in the direction of the arrow."},
+  {cat:"signs", img:FP("MUTCD_R4-7.svg"), q:"This sign, often seen near a divided highway or obstruction, means:", choices:["Keep right of the divider or obstruction","No passing zone","Right lane ends","Truck route"], a:0, exp:"A 'Keep Right' sign marks a divider, island, or obstruction — pass to the right of it."},
+  {cat:"signs", img:FP("MUTCD_R2-1.svg"), q:"A white rectangular sign with a black number and 'SPEED LIMIT' means:", choices:["The recommended safe minimum speed","The maximum legal speed allowed under good conditions","The average speed of traffic","The speed limit only for trucks"], a:1, exp:"This shows the maximum speed permitted under normal conditions. In poor conditions (rain, fog, heavy traffic) you must drive slower under the basic speed law."},
+  {cat:"signs", img:FP("MUTCD_W3-1.svg"), q:"This yellow diamond sign with 'STOP AHEAD' text warns that:", choices:["A stop sign or signal is coming up, be ready to stop","You are entering a stopped-traffic zone","Construction requires you to stop","Parking is prohibited ahead"], a:0, exp:"An advance warning sign like this gives you time to start slowing down before reaching a stop sign or signal you might not see yet."},
+  {cat:"signs", img:FP("MUTCD_W1-1a.svg"), q:"This yellow sign showing a sharp bending arrow warns of:", choices:["A dead end","A sharp curve ahead, slow down","A roundabout","A divided highway"], a:1, exp:"This warning sign indicates a sharp curve ahead. Reduce speed before entering the curve, not while turning."},
+  {cat:"signs", img:FP("MUTCD_W3-3.svg"), q:"This yellow diamond sign with a signal-light symbol warns that:", choices:["The traffic signal ahead is broken","A traffic signal is ahead, be prepared to stop","You are entering a school zone","Railroad tracks are signal-controlled ahead"], a:1, exp:"This is an advance warning that a traffic signal is coming up, especially useful where the signal isn't easily visible in advance."},
+  // RIGHT OF WAY
+  {cat:"rightofway", q:"You arrive at a four-way stop at the same time as another vehicle on your right. Who goes first?", choices:["You go first, you arrived first","The vehicle on your right has the right-of-way","Whoever honks first","The larger vehicle always goes first"], a:1, exp:"At a four-way stop, if two vehicles arrive at the same time, the vehicle on the right goes first."},
+  {cat:"rightofway", q:"You're turning left at an intersection with a green light and no arrow. When should you yield?", choices:["Never, green means go","To oncoming traffic and pedestrians before completing the turn","Only to pedestrians, not other cars","Only if a sign tells you to"], a:1, exp:"A plain green light lets you turn left, but you must first yield to oncoming traffic and any pedestrians in the crosswalk."},
+  {cat:"rightofway", q:"A pedestrian is crossing at a marked crosswalk with no traffic signal. You must:", choices:["Honk to warn them to hurry","Yield the right-of-way and let them cross safely","Only stop if they are already halfway across","Proceed if you have a green light"], a:1, exp:"Drivers must yield to pedestrians in any marked or unmarked crosswalk, signal or no signal."},
+  {cat:"rightofway", q:"You're approaching a roundabout. Who has the right-of-way?", choices:["Vehicles entering the roundabout","Vehicles already circulating inside the roundabout","Whoever is bigger","Vehicles turning right"], a:1, exp:"Traffic already inside a roundabout has the right-of-way; entering traffic must yield until there's a safe gap."},
+  {cat:"rightofway", q:"An ambulance with lights and siren on is approaching from behind on a two-lane road. You should:", choices:["Speed up to clear the intersection first","Pull to the right edge of the road and stop","Stop immediately in your lane","Continue at the same speed"], a:1, exp:"Pull as far right as safely possible and stop until the emergency vehicle has passed, unless a police officer directs otherwise."},
+  // SIGNALS & MARKINGS
+  {cat:"signals", q:"A flashing yellow traffic light means:", choices:["Stop, then proceed when safe","Slow down and proceed with caution","Stop and wait for green","Yield only to pedestrians"], a:1, exp:"A flashing yellow signal warns you to slow down and cross the intersection carefully; it does not require a full stop."},
+  {cat:"signals", q:"A flashing red traffic light should be treated the same as:", choices:["A yield sign","A stop sign","A green light","A do not enter sign"], a:1, exp:"Treat a flashing red signal exactly like a stop sign: come to a complete stop, then proceed when it's safe."},
+  {cat:"signals", q:"A solid yellow line on your side of the center line means:", choices:["Passing is allowed when safe","No passing allowed on your side","You may cross to make a U-turn only","The lane is for carpools only"], a:1, exp:"A solid yellow line on your side means passing is not allowed. If broken yellow is on your side, passing is permitted when safe."},
+  {cat:"signals", q:"White lines on the pavement separate:", choices:["Traffic moving in opposite directions","Lanes moving in the same direction","Bike lanes only","Parking areas only"], a:1, exp:"White lane lines separate traffic traveling in the same direction. Yellow lines separate opposing traffic."},
+  {cat:"signals", q:"A diamond painted on the pavement in a lane usually indicates:", choices:["A school crossing","A carpool/HOV lane","A no-passing zone","A truck-only lane"], a:1, exp:"Diamond pavement markings mark a carpool (HOV) lane, which usually has occupancy or vehicle-type restrictions."},
+  // SPEED & PARKING
+  {cat:"speedpark", q:"Unless posted otherwise, the speed limit on a residential street in California is:", choices:["15 mph","25 mph","35 mph","45 mph"], a:1, exp:"The default speed limit in residential and business districts in California is 25 mph unless signs say otherwise."},
+  {cat:"speedpark", q:"You may park in front of a driveway:", choices:["If you leave enough room to open your door","Never, it's always illegal","Only for less than 5 minutes","If there's no curb"], a:1, exp:"Parking in front of a driveway is illegal at any time, since it blocks access for the property owner."},
+  {cat:"speedpark", q:"When parking uphill on a street with a curb, you should turn your front wheels:", choices:["Toward the curb","Away from the curb","Straight ahead","It doesn't matter"], a:1, exp:"Parking uphill with a curb: turn wheels away from the curb so the car rolls back into the curb if the brakes fail."},
+  {cat:"speedpark", q:"The basic speed law in California means you should never drive faster than:", choices:["The posted speed limit, always","What is safe for current conditions, even if under the limit","65 mph on any road","The flow of surrounding traffic"], a:1, exp:"The basic speed law requires driving at a speed that is safe for current conditions, which can be lower than the posted limit in rain, fog, or heavy traffic."},
+  {cat:"speedpark", q:"A curb painted white means you may stop only to:", choices:["Load or unload passengers or mail","Park for up to 72 hours","Park for free at any time","Load freight only"], a:0, exp:"A white curb allows brief stopping to pick up or drop off passengers or mail."},
+  // ALCOHOL & DRUGS
+  {cat:"alcohol", q:"For drivers 21 and over, the legal blood alcohol concentration (BAC) limit in California is:", choices:["0.05%","0.08%","0.10%","0.02%"], a:1, exp:"The legal limit for drivers 21 and over is 0.08% BAC. For commercial drivers it's 0.04%, and for drivers under 21 it's effectively 0.01% (zero tolerance)."},
+  {cat:"alcohol", q:"Under California's 'implied consent' law, refusing a chemical test after a DUI arrest results in:", choices:["No penalty if you were not driving","Automatic license suspension", "A warning only for first offense","Nothing, refusal is your right with no consequence"], a:1, exp:"By driving in California you automatically consent to chemical testing if arrested for DUI; refusal leads to automatic license suspension."},
+  {cat:"alcohol", q:"For a driver under 21, the legal BAC limit in California is:", choices:["0.01% (essentially zero)","0.05%","0.08%","0.03%"], a:0, exp:"California has a zero-tolerance policy for drivers under 21: any measurable alcohol (0.01% BAC or more) is a violation."},
+  {cat:"alcohol", q:"Mixing prescription medication with alcohol before driving:", choices:["Is safe if the dose is small","Can be illegal and dangerous even below the legal BAC limit","Is only a concern for illegal drugs","Only matters for commercial drivers"], a:1, exp:"You can be arrested for driving under the influence of a legal medication combined with alcohol, even if your BAC is under 0.08%."},
+  // FREEWAY & GENERAL
+  {cat:"freeway", q:"When merging onto a freeway, you should:", choices:["Stop on the ramp until traffic clears","Match the speed of freeway traffic and merge into a gap","Enter slowly and let other cars adjust to you","Always yield by stopping at the end of the ramp"], a:1, exp:"Use the acceleration lane to match the speed of freeway traffic, then merge smoothly into an open gap."},
+  {cat:"freeway", q:"If your vehicle breaks down on a freeway, you should:", choices:["Stay in your lane with hazards on","Try to pull as far right as possible, ideally past the shoulder line","Stop immediately wherever you are","Get out and stand behind the car"], a:1, exp:"Pull as far right as possible, past the fog line if you can, turn on hazard lights, and stay clear of moving traffic."},
+  {cat:"freeway", q:"The proper following distance in good conditions is often described as:", choices:["One car length regardless of speed","At least a 3-second gap behind the vehicle ahead","As close as possible to save space","5 car lengths at any speed"], a:1, exp:"A 3-second gap (more in poor weather or heavy traffic) gives you time to react and brake safely."},
+  {cat:"freeway", q:"California's 'Move Over' law requires drivers to:", choices:["Move over or slow down for stopped emergency and tow vehicles with flashing lights","Only move over for police cars","Move over only on freeways with 3+ lanes","Ignore stopped vehicles if traffic is heavy"], a:0, exp:"When safely possible, move over a lane for stopped emergency vehicles, tow trucks, and Caltrans vehicles with flashing lights; otherwise slow down."},
+  {cat:"freeway", q:"Text messaging while driving in California is:", choices:["Allowed if stopped at a red light","Illegal for all drivers except in a genuine emergency","Only illegal for drivers under 18","Allowed if hands-free voice-to-text is not available"], a:1, exp:"California prohibits handheld texting while driving, including at stoplights, except for genuine emergencies. Hands-free voice-to-text is the legal option."},
+  {cat:"freeway", q:"When approaching a school bus with red lights flashing on a two-lane undivided road, you must:", choices:["Slow down and pass carefully","Stop from either direction until lights stop flashing","Only stop if children are visible","Continue if you are the only car"], a:1, exp:"Traffic in both directions must stop for a school bus with flashing red lights on an undivided road, and wait until the lights stop."},
+  // CURB COLORS
+  {cat:"curbs", swatch:"#c1272d", q:"A red curb means:", choices:["No stopping, standing, or parking at any time","Loading zone for freight only","Free parking for up to 1 hour","Passenger loading only"], a:0, exp:"Red always means no stopping, standing, or parking — not even briefly."},
+  {cat:"curbs", swatch:"#f2c14e", q:"A yellow curb means:", choices:["No parking at any time","Loading/unloading of passengers or freight, time-limited, driver may need to stay with vehicle","Free 72-hour parking","Handicap parking only"], a:1, exp:"Yellow curbs are for loading and unloading passengers or freight, usually with a posted time limit."},
+  {cat:"curbs", swatch:"#eee9e0", q:"A white curb means:", choices:["Loading freight only, no time limit","Stopping only to load/unload passengers or mail, briefly","Reserved for buses only","No stopping at any time"], a:1, exp:"White curbs allow brief stops to pick up or drop off passengers or deposit mail."},
+  {cat:"curbs", swatch:"#2e7d4f", q:"A green curb means:", choices:["Parking is limited to a specific short time, as posted","No parking ever","Reserved for emergency vehicles only","Free unlimited parking"], a:0, exp:"Green curbs indicate limited-time parking (e.g. 10 or 20 minutes), as posted nearby."},
+  {cat:"curbs", swatch:"#1d4e75", q:"A blue curb means:", choices:["Parking reserved for disabled persons with a placard or plates","Parking reserved for police vehicles","Free short-term parking","Loading zone for trucks"], a:0, exp:"Blue curbs are reserved for vehicles displaying a valid disabled person placard or license plate."}
+];
+
+/* ---------------- STATE ---------------- */
+let session = null; // {mode, questions:[...], idx, answers:[{cat,correct}]}
+let progress = { attempts: [], sessions: [], streak: 0, lastDay: null };
+
+const STORAGE_KEY = 'dmv-progress-v1';
+
+async function loadProgress(){
+  try{
+    const r = await window.storage.get(STORAGE_KEY);
+    if(r && r.value) progress = JSON.parse(r.value);
+  }catch(e){ /* first run, no data yet */ }
+  renderGauge();
+  renderStats();
+  renderCatGrid();
+}
+async function saveProgress(){
+  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(progress)); }
+  catch(e){ console.error('save failed', e); }
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+/* ---------------- TABS ---------------- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+    if(t.dataset.tab==='stats') renderStats();
+    hideQuizAndResults();
+  });
+});
+
+function hideQuizAndResults(){
+  document.getElementById('quizView').style.display='none';
+  document.getElementById('resultsView').style.display='none';
+  document.querySelectorAll('.panel.active').forEach(p=>p.style.display='block');
+  document.querySelector('.tabs').style.display='grid';
+  document.querySelector('.gauge-card').style.display='flex';
+}
+
+function backToMenu(){ hideQuizAndResults(); }
+function viewStats(){
+  hideQuizAndResults();
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  document.querySelector('.tab[data-tab="stats"]').classList.add('active');
+  document.getElementById('panel-stats').classList.add('active');
+  renderStats();
+}
+
+/* ---------------- CATEGORY GRID ---------------- */
+function catAccuracy(cat){
+  const rows = progress.attempts.filter(a=>a.cat===cat);
+  if(rows.length===0) return null;
+  const correct = rows.filter(a=>a.correct).length;
+  return Math.round(100*correct/rows.length);
+}
+
+function renderCatGrid(){
+  const grid = document.getElementById('catGrid');
+  grid.innerHTML='';
+  Object.keys(CATEGORIES).forEach(cat=>{
+    const acc = catAccuracy(cat);
+    const btn = document.createElement('div');
+    btn.className = 'cat-btn' + (acc!==null && acc<75 ? ' weak':'');
+    btn.innerHTML = `${CATEGORIES[cat]}<small>${acc===null?'Not tested yet':acc+'% accuracy'}</small>`;
+    btn.onclick = ()=>startSession('drill', cat);
+    grid.appendChild(btn);
+  });
+}
+
+/* ---------------- SESSION ---------------- */
+function startSession(mode, cat){
+  let pool;
+  if(mode==='random') pool = shuffle(QUESTIONS).slice(0, 10);
+  else if(mode==='mock') pool = shuffle(QUESTIONS);
+  else pool = shuffle(QUESTIONS.filter(q=>q.cat===cat));
+
+  session = { mode, cat, questions: pool, idx:0, answers:[] };
+
+  document.querySelector('.tabs').style.display='none';
+  document.querySelector('.gauge-card').style.display='none';
+  document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
+  document.getElementById('resultsView').style.display='none';
+  document.getElementById('quizView').style.display='block';
+
+  document.getElementById('qModeLabel').textContent =
+    mode==='random' ? 'Random practice' : mode==='mock' ? 'Mock exam' : CATEGORIES[cat] + ' drill';
+
+  renderQuestion();
+}
+
+function renderQuestion(){
+  const q = session.questions[session.idx];
+  document.getElementById('qCounter').textContent = `${session.idx+1} / ${session.questions.length}`;
+  document.getElementById('progressFill').style.width = (100*session.idx/session.questions.length)+'%';
+  document.getElementById('qCat').textContent = CATEGORIES[q.cat];
+  document.getElementById('qText').textContent = q.q;
+  document.getElementById('qExplain').style.display='none';
+  document.getElementById('qExplain').textContent = q.exp;
+  document.getElementById('nextBtn').style.display='none';
+
+  const imgWrap = document.getElementById('qImgWrap');
+  if(q.img){
+    imgWrap.style.display='flex';
+    imgWrap.innerHTML = `<img id="qImg" src="${q.img}" alt="road sign" onerror="this.parentElement.innerHTML='<div class=q-img-fallback>Image unavailable — answer from the description</div>'">`;
+  } else if(q.swatch){
+    imgWrap.style.display='flex';
+    imgWrap.innerHTML = `<div style="width:100%;height:70px;background:${q.swatch};border-radius:6px;border:1px solid #444;"></div>`;
+  } else {
+    imgWrap.style.display='none';
+    imgWrap.innerHTML = `<img id="qImg" src="" alt="">`;
+  }
+
+  const wrap = document.getElementById('choicesWrap');
+  wrap.innerHTML='';
+  const order = shuffle(q.choices.map((c,i)=>({text:c, isCorrect:i===q.a})));
+  order.forEach(opt=>{
+    const b = document.createElement('button');
+    b.className='choice';
+    b.textContent = opt.text;
+    b.onclick = ()=>answerQuestion(opt.isCorrect, b, wrap);
+    wrap.appendChild(b);
+  });
+}
+
+function answerQuestion(isCorrect, btn, wrap){
+  document.querySelectorAll('.choice').forEach(c=>c.classList.add('disabled'));
+  wrap.querySelectorAll('.choice').forEach(c=>{
+    if(c===btn) c.classList.add(isCorrect?'correct':'wrong');
+  });
+  if(!isCorrect){
+    // reveal the correct one too
+    const q = session.questions[session.idx];
+    wrap.querySelectorAll('.choice').forEach(c=>{
+      if(c.textContent === q.choices[q.a]) c.classList.add('correct');
+    });
+  }
+  document.getElementById('qExplain').style.display='block';
+  document.getElementById('nextBtn').style.display='block';
+
+  const q = session.questions[session.idx];
+  session.answers.push({cat:q.cat, correct:isCorrect});
+  progress.attempts.push({cat:q.cat, correct:isCorrect, ts:Date.now()});
+}
+
+function nextQuestion(){
+  session.idx++;
+  if(session.idx >= session.questions.length){
+    finishSession();
+  } else {
+    renderQuestion();
+  }
+}
+
+function finishSession(){
+  const total = session.answers.length;
+  const correct = session.answers.filter(a=>a.correct).length;
+  const pct = Math.round(100*correct/total);
+
+  // streak
+  const today = new Date().toDateString();
+  if(progress.lastDay !== today){
+    progress.streak = (progress.lastDay && isYesterday(progress.lastDay)) ? progress.streak+1 : 1;
+    progress.lastDay = today;
+  }
+
+  progress.sessions.push({mode:session.mode, cat:session.cat||null, total, correct, pct, ts:Date.now()});
+  saveProgress();
+
+  document.getElementById('quizView').style.display='none';
+  document.getElementById('resultsView').style.display='block';
+
+  const isMock = session.mode==='mock';
+  document.getElementById('resultLabel').textContent = isMock ? 'Mock Exam Result' : (session.mode==='drill' ? CATEGORIES[session.cat]+' Drill Result' : 'Practice Result');
+  document.getElementById('resultScore').textContent = `${correct}/${total}`;
+  document.getElementById('resultScore').className = 'big ' + (pct>=80?'pass':'fail');
+
+  let verdict;
+  if(isMock){
+    verdict = pct>=83 ? "Pass pace — you'd likely pass the real test today." : "Below pass pace — the real test needs ~83% (38/46). Keep drilling weak categories.";
+  } else {
+    verdict = pct>=80 ? "Solid." : "Needs more reps.";
+  }
+  document.getElementById('resultVerdict').textContent = verdict;
+
+  // per-category breakdown for this session
+  const byCat = {};
+  session.answers.forEach(a=>{
+    byCat[a.cat] = byCat[a.cat] || {c:0,t:0};
+    byCat[a.cat].t++; if(a.correct) byCat[a.cat].c++;
+  });
+  const barsEl = document.getElementById('resultCatBars');
+  barsEl.innerHTML='';
+  Object.keys(byCat).forEach(cat=>{
+    const p = Math.round(100*byCat[cat].c/byCat[cat].t);
+    barsEl.innerHTML += catBarHtml(CATEGORIES[cat], p);
+  });
+
+  renderGauge();
+  renderStats();
+  renderCatGrid();
+}
+
+function isYesterday(dayStr){
+  const d = new Date(dayStr);
+  const y = new Date(); y.setDate(y.getDate()-1);
+  return d.toDateString() === y.toDateString();
+}
+
+function catBarHtml(label, pct){
+  const color = pct>=80 ? 'var(--sign-green)' : pct>=60 ? 'var(--line-yellow)' : 'var(--sign-red)';
+  return `<div class="cat-bar-row">
+    <div class="label-row"><span>${label}</span><span>${pct}%</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+  </div>`;
+}
+
+/* ---------------- GAUGE / READINESS ---------------- */
+function computeReadiness(){
+  if(progress.attempts.length < 5) return null;
+  const cats = Object.keys(CATEGORIES);
+  let scores = [];
+  cats.forEach(cat=>{
+    const rows = progress.attempts.filter(a=>a.cat===cat).slice(-8);
+    if(rows.length>0){
+      const acc = rows.filter(a=>a.correct).length/rows.length;
+      scores.push(acc);
+    }
+  });
+  const testedRatio = scores.length / cats.length;
+  const avg = scores.reduce((s,v)=>s+v,0)/scores.length;
+  return Math.round(100*avg*Math.min(1, testedRatio + 0.3));
+}
+
+function renderGauge(){
+  const r = computeReadiness();
+  const num = document.getElementById('gaugeNum');
+  const arc = document.getElementById('gaugeArc');
+  const verdictText = document.getElementById('verdictText');
+  const verdictSub = document.getElementById('verdictSub');
+
+  if(r===null){
+    num.textContent='--';
+    arc.style.strokeDashoffset = 157;
+    verdictText.textContent = 'Not enough data';
+    verdictSub.textContent = 'Answer a few more questions to unlock your readiness score.';
+    return;
+  }
+  num.textContent = r+'%';
+  arc.style.strokeDashoffset = 157 - (157*r/100);
+  arc.style.stroke = r>=83 ? '#2e7d4f' : r>=60 ? '#f2c14e' : '#c1272d';
+
+  if(r>=83){ verdictText.textContent='Ready to test'; verdictSub.textContent='Your accuracy is at pass level across categories. Take a mock exam to confirm.'; }
+  else if(r>=60){ verdictText.textContent='Getting there'; verdictSub.textContent='Keep drilling your weakest categories below.'; }
+  else{ verdictText.textContent='Not ready yet'; verdictSub.textContent='Focus on category drills before attempting a mock exam.'; }
+}
+
+/* ---------------- STATS PANEL ---------------- */
+function renderStats(){
+  document.getElementById('statStreak').textContent = progress.streak || 0;
+  document.getElementById('statAttempts').textContent = progress.attempts.length;
+  const correct = progress.attempts.filter(a=>a.correct).length;
+  const acc = progress.attempts.length ? Math.round(100*correct/progress.attempts.length) : 0;
+  document.getElementById('statAcc').textContent = acc+'%';
+
+  const barsEl = document.getElementById('statCatBars');
+  barsEl.innerHTML='';
+  Object.keys(CATEGORIES).forEach(cat=>{
+    const acc = catAccuracy(cat);
+    barsEl.innerHTML += catBarHtml(CATEGORIES[cat], acc===null?0:acc);
+  });
+
+  const histEl = document.getElementById('historyList');
+  histEl.innerHTML='';
+  if(progress.sessions.length===0){
+    histEl.innerHTML = '<div style="font-size:12px;color:var(--grey);">No sessions yet.</div>';
+  } else {
+    progress.sessions.slice().reverse().slice(0,15).forEach(s=>{
+      const d = new Date(s.ts);
+      const label = s.mode==='mock' ? 'Mock exam' : s.mode==='drill' ? CATEGORIES[s.cat]+' drill' : 'Random practice';
+      const passed = s.mode==='mock' ? s.pct>=83 : s.pct>=80;
+      histEl.innerHTML += `<div class="history-item">
+        <span>${label} · ${d.toLocaleDateString()}</span>
+        <span class="${passed?'res-pass':'res-fail'}">${s.correct}/${s.total} (${s.pct}%)</span>
+      </div>`;
+    });
+  }
+}
+
+async function resetProgress(){
+  if(!confirm('This will erase all saved progress on this device. Continue?')) return;
+  progress = { attempts: [], sessions: [], streak: 0, lastDay: null };
+  await saveProgress();
+  renderGauge(); renderStats(); renderCatGrid();
+}
+
+loadProgress();
+</script>
+</body>
+</html>
