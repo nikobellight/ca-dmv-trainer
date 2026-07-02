@@ -276,7 +276,7 @@ const QUESTIONS = [
   {cat:"signs", img:FP("MUTCD_R4-7.svg"), q:"This sign, often seen near a divided highway or obstruction, means:", choices:["Keep right of the divider or obstruction","No passing zone","Right lane ends","Truck route"], a:0, exp:"A 'Keep Right' sign marks a divider, island, or obstruction — pass to the right of it."},
   {cat:"signs", img:FP("MUTCD_R2-1.svg"), q:"A white rectangular sign with a black number and 'SPEED LIMIT' means:", choices:["The recommended safe minimum speed","The maximum legal speed allowed under good conditions","The average speed of traffic","The speed limit only for trucks"], a:1, exp:"This shows the maximum speed permitted under normal conditions. In poor conditions (rain, fog, heavy traffic) you must drive slower under the basic speed law."},
   {cat:"signs", img:FP("MUTCD_W3-1.svg"), q:"This yellow diamond sign with 'STOP AHEAD' text warns that:", choices:["A stop sign or signal is coming up, be ready to stop","You are entering a stopped-traffic zone","Construction requires you to stop","Parking is prohibited ahead"], a:0, exp:"An advance warning sign like this gives you time to start slowing down before reaching a stop sign or signal you might not see yet."},
-  {cat:"signs", img:FP("MUTCD_W1-1a.svg"), q:"This yellow sign showing a sharp bending arrow warns of:", choices:["A dead end","A sharp curve ahead, slow down","A roundabout","A divided highway"], a:1, exp:"This warning sign indicates a sharp curve ahead. Reduce speed before entering the curve, not while turning."},
+  {cat:"signs", img:FP("MUTCD_W1-1R.svg"), q:"This yellow sign showing a sharp bending arrow warns of:", choices:["A dead end","A sharp curve ahead, slow down","A roundabout","A divided highway"], a:1, exp:"This warning sign indicates a sharp curve ahead. Reduce speed before entering the curve, not while turning."},
   {cat:"signs", img:FP("MUTCD_W3-3.svg"), q:"This yellow diamond sign with a signal-light symbol warns that:", choices:["The traffic signal ahead is broken","A traffic signal is ahead, be prepared to stop","You are entering a school zone","Railroad tracks are signal-controlled ahead"], a:1, exp:"This is an advance warning that a traffic signal is coming up, especially useful where the signal isn't easily visible in advance."},
   {cat:"signs", img:FP("MUTCD_W14-1.svg"), q:"This yellow sign reading 'DEAD END' or showing a T-shaped road means:", choices:["The road narrows ahead","The road ends ahead with no outlet, you'll need to turn","Construction has closed the road","A cul-de-sac is a shortcut"], a:1, exp:"A dead end sign warns that the road you're on terminates ahead and does not continue through."},
   {cat:"signs", q:"An orange diamond-shaped sign always indicates:", choices:["A school zone","A construction or work zone","A hospital ahead","A hazardous cargo route"], a:1, exp:"Orange is reserved for temporary construction and maintenance signs. Slow down and watch for workers and equipment."},
@@ -652,19 +652,15 @@ function catBarHtml(label, pct){
 
 /* ---------------- GAUGE / READINESS ---------------- */
 function computeReadiness(){
-  if(progress.attempts.length < 5) return null;
-  const cats = Object.keys(CATEGORIES);
-  let scores = [];
-  cats.forEach(cat=>{
-    const rows = progress.attempts.filter(a=>a.cat===cat).slice(-8);
-    if(rows.length>0){
-      const acc = rows.filter(a=>a.correct).length/rows.length;
-      scores.push(acc);
-    }
-  });
-  const testedRatio = scores.length / cats.length;
-  const avg = scores.reduce((s,v)=>s+v,0)/scores.length;
-  return Math.round(100*avg*Math.min(1, testedRatio + 0.3));
+  if(progress.attempts.length === 0) return null;
+  const totalBank = QUESTIONS.length;
+  const totalAttempts = progress.attempts.length;
+  const correct = progress.attempts.filter(a=>a.correct).length;
+  const accuracy = correct / totalAttempts;
+  // Coverage: how much of the whole bank you've actually practiced (capped at 1).
+  const coverage = Math.min(1, totalAttempts / totalBank);
+  const readiness = Math.round(100 * accuracy * coverage);
+  return { readiness, accuracy: Math.round(100*accuracy), totalAttempts, totalBank, coverage: Math.round(100*coverage) };
 }
 
 function renderGauge(){
@@ -677,17 +673,22 @@ function renderGauge(){
   if(r===null){
     num.textContent='--';
     arc.style.strokeDashoffset = 157;
-    verdictText.textContent = 'Not enough data';
-    verdictSub.textContent = 'Answer a few more questions to unlock your readiness score.';
+    verdictText.textContent = 'Not started';
+    verdictSub.textContent = 'Take a mock exam or practice session to get your first score.';
     return;
   }
-  num.textContent = r+'%';
-  arc.style.strokeDashoffset = 157 - (157*r/100);
-  arc.style.stroke = r>=83 ? '#2e7d4f' : r>=60 ? '#f2c14e' : '#c1272d';
 
-  if(r>=83){ verdictText.textContent='Ready to test'; verdictSub.textContent='Your accuracy is at pass level across categories. Take a mock exam to confirm.'; }
-  else if(r>=60){ verdictText.textContent='Getting there'; verdictSub.textContent='Keep drilling your weakest categories below.'; }
-  else{ verdictText.textContent='Not ready yet'; verdictSub.textContent='Focus on category drills before attempting a mock exam.'; }
+  num.textContent = r.readiness+'%';
+  arc.style.strokeDashoffset = 157 - (157*r.readiness/100);
+  arc.style.stroke = r.readiness>=83 ? '#2e7d4f' : r.readiness>=40 ? '#f2c14e' : '#c1272d';
+
+  if(r.readiness>=83){
+    verdictText.textContent='Ready to test';
+    verdictSub.textContent=`${r.accuracy}% accuracy across ${r.totalAttempts}/${r.totalBank} questions practiced. Take a full mock exam to confirm.`;
+  } else {
+    verdictText.textContent = r.totalAttempts < r.totalBank ? 'Still building coverage' : 'Keep drilling weak spots';
+    verdictSub.textContent = `${r.accuracy}% accuracy, but only ${r.totalAttempts}/${r.totalBank} questions in the bank practiced (${r.coverage}% coverage). Readiness needs both.`;
+  }
 }
 
 /* ---------------- STATS PANEL ---------------- */
